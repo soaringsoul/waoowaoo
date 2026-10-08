@@ -1,3 +1,4 @@
+import { readResponseBufferWithLimit } from '@/lib/http/body-limits'
 import { fetchWithProviderProxy } from '@/lib/http/outbound-proxy'
 import type { CodexCredentialBundle } from './auth'
 
@@ -21,6 +22,8 @@ const UNSUPPORTED_BACKEND_FIELDS = [
   'prompt_cache_retention',
   'safety_identifier',
 ] as const
+
+const CODEX_STREAM_MAX_BYTES = 40 * 1024 * 1024
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -82,14 +85,14 @@ export function prepareCodexBackendBody(body: Record<string, unknown>): void {
 function parseSseEvents(text: string): Record<string, unknown>[] {
   const events: Record<string, unknown>[] = []
   for (const block of text.split(/\r?\n\r?\n/u)) {
-    const data = block
+    const boundedFrameData = block
       .split(/\r?\n/u)
       .filter((line) => line.startsWith('data:'))
       .map((line) => line.slice(5).trimStart())
       .join('\n')
-    if (!data || data === '[DONE]') continue
+    if (!boundedFrameData || boundedFrameData === '[DONE]') continue
     try {
-      const parsed: unknown = JSON.parse(data)
+      const parsed: unknown = JSON.parse(boundedFrameData)
       if (isRecord(parsed)) events.push(parsed)
     } catch {
       // Ignore keep-alive or non-JSON frames.
@@ -104,8 +107,8 @@ function parseSseEvents(text: string): Record<string, unknown>[] {
  * would have produced, so `generateText` works unchanged.
  */
 export async function collapseCodexStreamToJson(response: Response): Promise<Response> {
-  const text = await response.text()
-  const events = parseSseEvents(text)
+  const streamBody = await readResponseBufferWithLimit(response, CODEX_STREAM_MAX_BYTES, 'codex backend stream')
+  const events = parseSseEvents(streamBody.toString('utf8'))
   const terminal = [...events].reverse().find((event) => (
     event.type === 'response.completed'
     || event.type === 'response.done'

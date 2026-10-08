@@ -118,11 +118,33 @@ function findLossyCatchWrappers(file: string, source: string): readonly number[]
   return lines
 }
 
+// Provider adapters that parse the outgoing request body the AI SDK built
+// (never a Provider response) before forwarding it.
+const PROVIDER_REQUEST_BODY_READERS = [
+  '/ai-providers/ark/language-model.ts',
+  '/ai-providers/openrouter/language-model.ts',
+  '/ai-providers/shared/openai-responses.ts',
+  '/ai-providers/codex/backend.ts',
+] as const
+
+// JSON.parse inputs that are not raw Provider HTTP responses: SSE frames taken
+// from a stream already read through readResponseBufferWithLimit, JWT claims,
+// and credential JSON pasted by the user.
+const NON_RESPONSE_JSON_PARSE_ARGUMENTS: ReadonlyArray<readonly [string, string]> = [
+  ['/ai-providers/codex/backend.ts', 'boundedFrameData'],
+  ['/ai-providers/codex/auth.ts', 'jwtPayloadJson'],
+  ['/ai-providers/codex/auth.ts', 'credentialText'],
+]
+
 function findProviderResponseParserBypasses(file: string, source: string): readonly number[] {
   const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
   const lines: number[] = []
-  const requestBodyReader = file.endsWith('/ai-providers/ark/language-model.ts')
-    || file.endsWith('/ai-providers/openrouter/language-model.ts')
+  const requestBodyReader = PROVIDER_REQUEST_BODY_READERS.some((suffix) => file.endsWith(suffix))
+  const nonResponseJsonArguments = new Set(
+    NON_RESPONSE_JSON_PARSE_ARGUMENTS
+      .filter(([suffix]) => file.endsWith(suffix))
+      .map(([, argument]) => argument),
+  )
   const visit = (node: ts.Node): void => {
     if (
       ts.isCallExpression(node)
@@ -156,7 +178,10 @@ function findProviderResponseParserBypasses(file: string, source: string): reado
         && node.arguments.length === 1
         && ts.isIdentifier(node.arguments[0])
         && node.arguments[0].text === 'bodyText'
-      if (!allowedRequestJson) {
+      const allowedNonResponseJson = node.arguments.length === 1
+        && ts.isIdentifier(node.arguments[0])
+        && nonResponseJsonArguments.has(node.arguments[0].text)
+      if (!allowedRequestJson && !allowedNonResponseJson) {
         lines.push(sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1)
       }
     }

@@ -52,14 +52,14 @@ async function readJsonRequestBody(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Record<string, unknown> | null> {
-  const text = typeof init?.body === 'string'
+  const bodyText = typeof init?.body === 'string'
     ? init.body
     : typeof Request !== 'undefined' && input instanceof Request
       ? await input.clone().text()
       : ''
-  if (!text) return null
+  if (!bodyText) return null
   try {
-    const parsed: unknown = JSON.parse(text)
+    const parsed: unknown = JSON.parse(bodyText)
     return isRecord(parsed) ? parsed : null
   } catch {
     return null

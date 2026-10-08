@@ -1,5 +1,6 @@
 import { AppError } from '@/lib/errors/app-error'
 import { fetchWithProviderProxy } from '@/lib/http/outbound-proxy'
+import { ProviderHttpError, readProviderJsonResponse } from '../failure'
 
 /**
  * ChatGPT ("Sign in with ChatGPT") credentials for the Codex backend.
@@ -22,6 +23,7 @@ export const CODEX_DEVICE_LOGIN_TIMEOUT_MS = 15 * 60 * 1000
 /** Refresh when the access token has less than this much life left. */
 const ACCESS_TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000
 const AUTH_REQUEST_TIMEOUT_MS = 30_000
+const AUTH_RESPONSE_MAX_BYTES = 1024 * 1024
 
 export type CodexCredentialBundle = {
   readonly kind: 'chatgpt'
@@ -54,8 +56,8 @@ export function decodeJwtClaims(token: string): Record<string, unknown> | null {
   const parts = token.split('.')
   if (parts.length < 2 || !parts[1]) return null
   try {
-    const json = Buffer.from(parts[1].replace(/-/gu, '+').replace(/_/gu, '/'), 'base64').toString('utf8')
-    const parsed: unknown = JSON.parse(json)
+    const jwtPayloadJson = Buffer.from(parts[1].replace(/-/gu, '+').replace(/_/gu, '/'), 'base64').toString('utf8')
+    const parsed: unknown = JSON.parse(jwtPayloadJson)
     return isRecord(parsed) ? parsed : null
   } catch {
     return null
@@ -127,11 +129,11 @@ export function buildCodexCredentialBundle(input: {
  * bare OAuth token response.
  */
 export function parseCodexCredential(raw: string): CodexCredentialBundle {
-  const text = raw.trim()
-  if (!text) throw new CodexCredentialError('credential is empty')
+  const credentialText = raw.trim()
+  if (!credentialText) throw new CodexCredentialError('credential is empty')
   let parsed: unknown
   try {
-    parsed = JSON.parse(text)
+    parsed = JSON.parse(credentialText)
   } catch {
     throw new CodexCredentialError(
       'expected the JSON produced by ChatGPT login (or the contents of ~/.codex/auth.json); plain API keys belong to the OpenAI provider',
@@ -176,12 +178,17 @@ export function isCodexAccessTokenFresh(bundle: CodexCredentialBundle, now = Dat
 }
 
 async function readJsonBody(response: Response): Promise<Record<string, unknown>> {
-  const text = await response.text()
   try {
-    const parsed: unknown = JSON.parse(text)
+    const parsed = await readProviderJsonResponse<unknown>({
+      response,
+      provider: 'codex',
+      phase: 'submit',
+      maxBytes: AUTH_RESPONSE_MAX_BYTES,
+    })
     return isRecord(parsed) ? parsed : {}
-  } catch {
-    return { raw: text.slice(0, 500) }
+  } catch (error: unknown) {
+    if (error instanceof ProviderHttpError) return { raw: (error.diagnosticText ?? '').slice(0, 500) }
+    throw error
   }
 }
 
