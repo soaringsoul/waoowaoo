@@ -17,6 +17,9 @@ export interface ApiConfigCatalogProvider {
     featured: boolean
     connectionTest: boolean
     modelTypes: UnifiedModelType[]
+    customModelTypes?: UnifiedModelType[]
+    baseUrlEditable?: boolean
+    credentialInput?: 'api-key' | 'chatgpt-login'
 }
 
 export interface ApiConfigCatalogModel {
@@ -42,6 +45,10 @@ export interface Provider {
     featured?: boolean
     connectionTest?: boolean
     modelTypes?: UnifiedModelType[]
+    /** Model types the user may add custom model ids for; falls back to modelTypes. */
+    customModelTypes?: UnifiedModelType[]
+    baseUrlEditable?: boolean
+    credentialInput?: 'api-key' | 'chatgpt-login'
 }
 
 // 模型接口
@@ -115,6 +122,9 @@ const ZH_PROVIDER_NAME_MAP: Record<string, string> = {
     google: 'Google',
     fal: 'FAL',
     openrouter: 'OpenRouter',
+    codex: 'Codex（ChatGPT 登录）',
+    openai: 'OpenAI',
+    'openai-compatible': 'OpenAI 兼容接口',
 }
 
 function isZhLocale(locale?: string): boolean {
@@ -186,6 +196,30 @@ export const PROVIDER_TUTORIALS: ProviderTutorial[] = [
                 text: 'google_step1',
                 url: 'https://aistudio.google.com/api-keys'
             }
+        ]
+    },
+    {
+        providerId: 'codex',
+        steps: [
+            { text: 'codex_step1' },
+            { text: 'codex_step2', url: 'https://auth.openai.com/codex/device' },
+            { text: 'codex_step3' },
+        ]
+    },
+    {
+        providerId: 'openai',
+        steps: [
+            {
+                text: 'openai_step1',
+                url: 'https://platform.openai.com/api-keys'
+            }
+        ]
+    },
+    {
+        providerId: 'openai-compatible',
+        steps: [
+            { text: 'openai_compatible_step1' },
+            { text: 'openai_compatible_step2' },
         ]
     },
 ]

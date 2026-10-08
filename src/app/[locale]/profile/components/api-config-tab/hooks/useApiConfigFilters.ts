@@ -29,6 +29,19 @@ interface UseApiConfigFiltersParams {
   defaultModels: DefaultModels
 }
 
+/**
+ * The text slot is the Assistant model, which runs through the Codex runtime
+ * and therefore needs a Responses-capable route. Catalog models that declare
+ * LLM capabilities without it (e.g. Gemini via Google's native API) cannot be
+ * selected there; models without declared capabilities keep the old behavior.
+ */
+function canDriveAssistant(model: CustomModel): boolean {
+  if (model.type !== 'llm') return true
+  const llm = model.capabilities?.llm
+  if (!llm) return true
+  return llm.codexRuntimeWireApi === 'responses'
+}
+
 function hasProviderApiKey(provider: Provider | undefined): boolean {
   if (!provider) return false
   if (provider.hasApiKey === true) return true
@@ -51,6 +64,7 @@ export function useApiConfigFilters({ providers, models, defaultModels }: UseApi
   const slotOptionsByType = useMemo(() => {
     const grouped = new Map<UnifiedModelType, ModelSlotOption[]>()
     for (const model of models) {
+      if (!canDriveAssistant(model)) continue
       const provider = providersById.get(model.provider)
       const option: ModelSlotOption = {
         modelKey: model.modelKey,

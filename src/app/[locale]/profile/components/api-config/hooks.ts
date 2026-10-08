@@ -42,6 +42,8 @@ interface UseProvidersReturn {
     saveError: ApiConfigSaveError | null
     flushConfig: () => Promise<void>
     updateProviderApiKey: (providerId: string, apiKey: string) => void
+    updateProviderBaseUrl: (providerId: string, baseUrl: string) => void
+    markProviderCredentialStored: (providerId: string) => void
     reorderProviders: (activeProviderId: string, overProviderId: string) => void
     deleteProvider: (providerId: string) => void
     selectSlotModel: (type: UnifiedModelType, modelKey: string) => void
@@ -166,6 +168,40 @@ export function useProviders(): UseProvidersReturn {
             setProviders(settled)
         })
     }, [performSave])
+
+    const updateProviderBaseUrl = useCallback((providerId: string, baseUrl: string) => {
+        const previousProvider = latestProvidersRef.current.find((provider) => provider.id === providerId)
+        if (!previousProvider) return
+        const nextBaseUrl = baseUrl.trim() || undefined
+        const next = latestProvidersRef.current.map((provider) => (
+            provider.id === providerId ? { ...provider, baseUrl: nextBaseUrl } : provider
+        ))
+        latestProvidersRef.current = next
+        setProviders(next)
+        void performSave().then((saved) => {
+            if (saved) return
+            const reverted = latestProvidersRef.current.map((provider) => (
+                provider.id === providerId ? { ...provider, baseUrl: previousProvider.baseUrl } : provider
+            ))
+            latestProvidersRef.current = reverted
+            setProviders(reverted)
+        })
+    }, [performSave])
+
+    /**
+     * A server-side login flow (ChatGPT device login) stored the credential.
+     * Mark it present and keep `apiKey` undefined so later saves preserve it
+     * instead of sending an empty key that would delete it.
+     */
+    const markProviderCredentialStored = useCallback((providerId: string) => {
+        const exists = latestProvidersRef.current.some((provider) => provider.id === providerId)
+        if (!exists) return
+        const next = latestProvidersRef.current.map((provider) => (
+            provider.id === providerId ? { ...provider, apiKey: undefined, hasApiKey: true } : provider
+        ))
+        latestProvidersRef.current = next
+        setProviders(next)
+    }, [])
 
     const reorderProviders = useCallback((activeProviderId: string, overProviderId: string) => {
         if (activeProviderId === overProviderId) return
@@ -340,6 +376,8 @@ export function useProviders(): UseProvidersReturn {
         saveError,
         flushConfig,
         updateProviderApiKey,
+        updateProviderBaseUrl,
+        markProviderCredentialStored,
         reorderProviders,
         deleteProvider,
         selectSlotModel,

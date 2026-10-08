@@ -31,6 +31,7 @@ export function ProviderRowShell({
   children,
 }: ProviderRowShellProps) {
   const configured = !!provider.hasApiKey
+  const usesChatGptLogin = provider.credentialInput === 'chatgpt-login'
   return (
     <div className="border-b border-[var(--glass-stroke-base)] last:border-b-0">
       <div className="flex items-center gap-3 px-3 py-2.5">
@@ -47,17 +48,24 @@ export function ProviderRowShell({
         >
           <span className="truncate text-[15px] font-bold text-[var(--glass-text-primary)]">{provider.name}</span>
           <span className="hidden shrink-0 text-[12px] text-[var(--glass-text-tertiary)] sm:inline">
-            {configured ? t('keyConfigured') : t('notConfigured')}
+            {configured
+              ? (usesChatGptLogin ? t('codexLogin.connected') : t('keyConfigured'))
+              : t('notConfigured')}
           </span>
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
-            onClick={() => { onExpandChange(true); state.startEditKey() }}
+            onClick={() => {
+              onExpandChange(true)
+              if (!usesChatGptLogin) state.startEditKey()
+            }}
             className={`glass-btn-base px-2.5 py-1.5 text-[12px] ${configured ? 'glass-btn-soft' : 'glass-btn-primary'}`}
           >
             <AppIcon name={configured ? 'edit' : 'plus'} className="h-3.5 w-3.5" />
-            {configured ? t('configure') : t('configureApiKey')}
+            {configured
+              ? t('configure')
+              : (usesChatGptLogin ? t('codexLogin.signIn') : t('configureApiKey'))}
           </button>
           {state.tutorial && (
             <button

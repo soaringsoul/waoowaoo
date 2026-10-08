@@ -22,6 +22,7 @@ export function ProviderModelSections(props: ProviderModelSectionsProps) {
   const types = MODEL_SLOT_TYPES.filter(
     (type) => provider.modelTypes?.includes(type) || state.groupedModels[type]?.length,
   )
+  const addableTypes = provider.customModelTypes ?? provider.modelTypes ?? []
 
   return (
     <div className="space-y-4 px-4 pb-4 pt-1">
@@ -36,7 +37,7 @@ export function ProviderModelSections(props: ProviderModelSectionsProps) {
                 {t(presentation.typeLabel)}
                 <span className="font-normal text-[var(--glass-text-tertiary)]">{models.length}</span>
               </h4>
-              {provider.modelTypes?.includes(type) && state.showAddForm !== type && (
+              {addableTypes.includes(type) && state.showAddForm !== type && (
                 <button
                   type="button"
                   onClick={() => state.setShowAddForm(type)}

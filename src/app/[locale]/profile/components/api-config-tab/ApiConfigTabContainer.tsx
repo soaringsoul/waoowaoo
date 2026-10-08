@@ -26,6 +26,8 @@ export function ApiConfigTabContainer() {
     saveStatus,
     saveError,
     updateProviderApiKey,
+    updateProviderBaseUrl,
+    markProviderCredentialStored,
     reorderProviders,
     deleteProvider,
     selectSlotModel,
@@ -42,7 +44,11 @@ export function ApiConfigTabContainer() {
     ? t('saveFailedProviderUnsupported', {
       provider: getProviderDisplayName(saveError.providerId, locale),
     })
-    : t('saveFailed')
+    : saveError?.code === 'PROVIDER_CREDENTIAL_INVALID'
+      ? t('saveFailedCredentialInvalid')
+      : saveError?.code === 'PROVIDER_BASE_URL_INVALID'
+        ? t('saveFailedBaseUrlInvalid')
+        : t('saveFailed')
 
   const savingState =
     saveStatus === 'saving'
@@ -122,6 +128,8 @@ export function ApiConfigTabContainer() {
             defaultModels={defaultModels}
             getModelsForProvider={getModelsForProvider}
             onUpdateApiKey={updateProviderApiKey}
+            onUpdateBaseUrl={updateProviderBaseUrl}
+            onCredentialStored={markProviderCredentialStored}
             onReorderProviders={reorderProviders}
             onDeleteModel={deleteModel}
             onUpdateModel={updateModel}

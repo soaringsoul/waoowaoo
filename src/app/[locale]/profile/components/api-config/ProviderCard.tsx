@@ -16,6 +16,8 @@ export function ProviderCard({
   expanded,
   onExpandChange,
   onUpdateApiKey,
+  onUpdateBaseUrl,
+  onCredentialStored,
   onDeleteModel,
   onUpdateModel,
   onDeleteProvider,
@@ -45,7 +47,13 @@ export function ProviderCard({
       t={t}
       state={state}
     >
-      <ProviderBaseFields provider={provider} t={t} state={state} />
+      <ProviderBaseFields
+        provider={provider}
+        t={t}
+        state={state}
+        onUpdateBaseUrl={onUpdateBaseUrl}
+        onCredentialStored={onCredentialStored}
+      />
       <ProviderModelSections
         provider={provider}
         onDeleteModel={onDeleteModel}
