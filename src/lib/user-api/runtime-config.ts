@@ -11,6 +11,7 @@ import { prisma } from '@/lib/prisma'
 import type { StoredProvider } from '@/lib/user-api/api-config-types'
 import { parseStoredProviders } from '@/lib/user-api/api-config-provider-normalization'
 import { decryptApiKey } from '@/lib/crypto-utils'
+import { refreshStoredProviderSecret } from '@/lib/user-api/provider-secret-store'
 import { isApiConfigCatalogProviderId } from '@/lib/ai-registry/api-config-catalog'
 import { parseModelKeyStrict } from '@/lib/ai-registry/selection'
 import type { AiLlmProviderConfig } from '@/lib/ai-registry/types'
@@ -71,8 +72,9 @@ function getProviderFamily(providerId: string): string {
 
 function resolvePlatformProviderEnv(providerId: string): PlatformProviderEnv {
   const providerFamily = getProviderFamily(providerId)
-  const entry = resolveAiProviderManifest(providerFamily).platformCredentials
-  if (!entry) {
+  const manifest = resolveAiProviderManifest(providerFamily)
+  const entry = manifest.platformCredentials
+  if (!entry || manifest.adapter.credential?.platformCredentialsSupported === false) {
     throw new Error(`PLATFORM_PROVIDER_UNSUPPORTED: ${providerId}`)
   }
 
@@ -259,12 +261,26 @@ export async function getProviderConfig(userId: string, providerId: string): Pro
     })
   }
 
+  const storedSecret = decryptApiKey(provider.apiKey)
   return {
     id: provider.id,
     name: provider.name,
-    apiKey: decryptApiKey(provider.apiKey),
+    apiKey: await resolveProviderRuntimeSecret(userId, provider.id, storedSecret),
     baseUrl: normalizeProviderRuntimeBaseUrl(provider.id, provider.baseUrl),
   }
+}
+
+async function resolveProviderRuntimeSecret(
+  userId: string,
+  providerId: string,
+  storedSecret: string,
+): Promise<string> {
+  const credential = resolveAiProviderManifest(getProviderFamily(providerId)).adapter.credential
+  if (!credential?.resolveRuntimeSecret) return storedSecret
+  return await credential.resolveRuntimeSecret({
+    secret: storedSecret,
+    refreshUnderLock: (refresh) => refreshStoredProviderSecret(userId, providerId, refresh),
+  })
 }
 
 export async function getUserModelsForExistingExecution(userId: string): Promise<CustomModel[]> {

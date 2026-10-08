@@ -4,6 +4,10 @@ import { resolveLlmRuntimeModel } from '@/lib/ai-exec/llm-runtime'
 import { getUserModelConfig } from '@/lib/config-service'
 import { getProviderConfig } from '@/lib/user-api/runtime-config'
 import { verifyWaoRuntimeToken } from '@/lib/wao-mcp/runtime-token'
+import { resolveAiProviderAdapter } from '@/lib/ai-providers'
+import { getProviderKey } from '@/lib/ai-registry/selection'
+import { getBillingMode } from '@/lib/billing/mode'
+import type { AiProviderAssistantGatewayUpstream } from '@/lib/ai-providers/runtime-types'
 import {
   CODEX_MODEL_GATEWAY_ASSISTANT_ID,
   CODEX_MODEL_GATEWAY_PATH,
@@ -82,6 +86,22 @@ function resolveCodexRuntimeModelId(upstreamModelId: string): string {
   return upstreamModelId
 }
 
+function defaultAssistantGatewayUpstream(input: {
+  readonly providerKey: string
+  readonly providerApiKey: string
+  readonly providerBaseUrl: string
+}): AiProviderAssistantGatewayUpstream {
+  return {
+    responsesEndpoint: buildResponsesEndpoint(input.providerBaseUrl),
+    headers: {
+      Authorization: `Bearer ${input.providerApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    // OpenRouter keeps its historic realtime cost settlement attachment.
+    realtimeBilling: input.providerKey === 'openrouter' ? 'openrouter' : 'none',
+  }
+}
+
 async function resolveSelectedAssistantModel(scope: CodexModelGatewayScope) {
   const config = await getUserModelConfig(scope.userId)
   const modelKey = config.assistantModel?.trim() || ''
@@ -98,13 +118,19 @@ async function resolveSelectedAssistantModel(scope: CodexModelGatewayScope) {
   } catch {
     throw new CodexModelGatewayError('ASSISTANT_MODEL_UNSUPPORTED', 422)
   }
-  if (selection.provider !== 'openrouter') {
+  // Self-hosted billing is OFF and treats realtime settlement as a no-op.
+  // Billed modes keep the historic OpenRouter-only assistant gate so
+  // non-OpenRouter usage never bypasses OpenRouter realtime cost settlement.
+  const billingMode = await getBillingMode()
+  if (billingMode !== 'OFF' && selection.provider !== 'openrouter') {
     throw new CodexModelGatewayError(
       'PROVIDER_RESPONSES_UNSUPPORTED',
       422,
     )
   }
   ensureAiCatalogsRegistered()
+  const providerKey = getProviderKey(selection.provider)
+  const adapter = resolveAiProviderAdapter(providerKey)
   const codexRuntimeWireApi = findBuiltinCapabilities(
     'llm',
     selection.provider,
@@ -129,14 +155,32 @@ async function resolveSelectedAssistantModel(scope: CodexModelGatewayScope) {
       503,
     )
   }
+
+  const providerOwned = adapter.assistantGateway?.resolveUpstream({
+    providerConfig,
+    modelId: selection.modelId,
+  })
   const providerBaseUrl = providerConfig.baseUrl?.trim() || ''
-  if (!providerBaseUrl) {
+  const upstream = providerOwned ?? (
+    providerBaseUrl
+      ? defaultAssistantGatewayUpstream({
+          providerKey,
+          providerApiKey: providerConfig.apiKey,
+          providerBaseUrl,
+        })
+      : null
+  )
+  if (!upstream) {
     throw new CodexModelGatewayError('PROVIDER_BASE_URL_INVALID', 503)
   }
+  if (upstream.realtimeBilling === 'openrouter' && providerKey !== 'openrouter') {
+    throw new Error(`CODEX_GATEWAY_REALTIME_BILLING_PROVIDER_MISMATCH:${providerKey}`)
+  }
+
   return {
     selection,
-    providerApiKey: providerConfig.apiKey,
-    responsesEndpoint: buildResponsesEndpoint(providerBaseUrl),
+    providerKey,
+    upstream,
   }
 }
 
@@ -146,8 +190,11 @@ export async function resolveCodexModelGatewayUpstream(
   readonly runtimeModelId: string
   readonly modelId: string
   readonly modelKey: string
+  readonly providerKey: string
   readonly responsesEndpoint: string
-  readonly providerApiKey: string
+  readonly headers: Readonly<Record<string, string>>
+  readonly prepareBody?: (body: Record<string, unknown>) => void
+  readonly realtimeBilling: 'openrouter' | 'none'
 }> {
   const scope = normalizeCodexModelGatewayScope(scopeValue)
   const resolved = await resolveSelectedAssistantModel(scope)
@@ -155,8 +202,13 @@ export async function resolveCodexModelGatewayUpstream(
     runtimeModelId: resolveCodexRuntimeModelId(resolved.selection.modelId),
     modelId: resolved.selection.modelId,
     modelKey: resolved.selection.modelKey,
-    responsesEndpoint: resolved.responsesEndpoint,
-    providerApiKey: resolved.providerApiKey,
+    providerKey: resolved.providerKey,
+    responsesEndpoint: resolved.upstream.responsesEndpoint,
+    headers: resolved.upstream.headers,
+    ...(resolved.upstream.prepareBody
+      ? { prepareBody: resolved.upstream.prepareBody }
+      : {}),
+    realtimeBilling: resolved.upstream.realtimeBilling,
   }
 }
 

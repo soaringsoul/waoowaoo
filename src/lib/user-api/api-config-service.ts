@@ -19,7 +19,11 @@ import { normalizeWorkflowConcurrencyConfig } from '@/lib/workflow-concurrency'
 import { getDefaultWorkflowConcurrencyConfig } from '@/lib/workflow-concurrency-env'
 import type { ApiConfigPutBody, DefaultModelsPayload } from './api-config-types'
 import { isRecord } from './api-config-shared'
-import { parseStoredProviders, normalizeProvidersInput } from './api-config-provider-normalization'
+import {
+  normalizeProviderSecretForStorage,
+  normalizeProvidersInput,
+  parseStoredProviders,
+} from './api-config-provider-normalization'
 import {
   normalizeModelList,
   parseStoredModels,
@@ -196,7 +200,7 @@ export async function putUserApiConfig(
     } else if (provider.apiKey === '') {
       finalApiKey = undefined
     } else {
-      finalApiKey = encryptApiKey(provider.apiKey)
+      finalApiKey = encryptApiKey(normalizeProviderSecretForStorage(provider.id, provider.apiKey))
     }
 
     return {

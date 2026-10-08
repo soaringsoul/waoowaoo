@@ -241,6 +241,7 @@ function normalizeAndValidateBody(params: {
   readonly parsed: Record<string, unknown>
   readonly runtimeModelId: string
   readonly upstreamModelId: string
+  readonly prepareBody?: (body: Record<string, unknown>) => void
 }): {
   readonly body: Buffer
   readonly diagnostics: ProviderRequestDiagnostics
@@ -250,6 +251,7 @@ function normalizeAndValidateBody(params: {
     throw new CodexModelGatewayError('REQUEST_MODEL_MISMATCH', 403)
   }
   normalizeCodexProviderRequest(parsed)
+  params.prepareBody?.(parsed)
   parsed.model = params.upstreamModelId
   const normalizedBody = Buffer.from(JSON.stringify(parsed), 'utf8')
   return {
@@ -367,6 +369,7 @@ export async function proxyCodexResponsesRequest(params: {
     parsed: modelRequest.parsed,
     runtimeModelId: upstream.runtimeModelId,
     upstreamModelId: upstream.modelId,
+    prepareBody: upstream.prepareBody,
   })
   const { body } = providerRequest
   const requestedAccept = params.request.headers.get('accept')?.toLowerCase()
@@ -379,7 +382,7 @@ export async function proxyCodexResponsesRequest(params: {
     userId: scope.userId,
     turnId: activeTurn.turnId,
     runtimeAttempt: activeTurn.attempt,
-    providerKey: 'openrouter',
+    providerKey: upstream.providerKey,
     modelKey: upstream.modelKey,
     requestHash: createHash('sha256')
       .update(body)
@@ -408,8 +411,7 @@ export async function proxyCodexResponsesRequest(params: {
       method: 'POST',
       headers: {
         Accept: accept,
-        Authorization: `Bearer ${upstream.providerApiKey}`,
-        'Content-Type': 'application/json',
+        ...upstream.headers,
       },
       body: new Uint8Array(body),
       redirect: 'error',
@@ -421,7 +423,7 @@ export async function proxyCodexResponsesRequest(params: {
       params.request.signal.throwIfAborted()
     }
     const sourceFailure = projectProviderCredentialOwnership(
-      resolveAiProviderAdapter('openrouter').failure.normalize({
+      resolveAiProviderAdapter(upstream.providerKey).failure.normalize({
         error,
         phase: 'submit',
         operation: EXTERNAL_OPERATION.PROVIDER_SUBMIT,
@@ -467,10 +469,10 @@ export async function proxyCodexResponsesRequest(params: {
   })
   let projection: Awaited<ReturnType<typeof projectCodexProviderResponse>>
   try {
-    projection = await projectCodexProviderResponse(response)
+    projection = await projectCodexProviderResponse(response, upstream.providerKey)
   } catch (error: unknown) {
     const sourceFailure = projectProviderCredentialOwnership(
-      resolveAiProviderAdapter('openrouter').failure.normalize({
+      resolveAiProviderAdapter(upstream.providerKey).failure.normalize({
         error,
         phase: 'result',
         operation: EXTERNAL_OPERATION.PROVIDER_SUBMIT,
@@ -527,6 +529,9 @@ export async function proxyCodexResponsesRequest(params: {
     modelKey: upstream.modelKey,
     responseStartedAt: providerRequestStartedAt,
   })
+  if (upstream.realtimeBilling !== 'openrouter') {
+    return observedResponse
+  }
   return attachOpenRouterRealtimeBilling({
     response: observedResponse,
     headerGenerationId,

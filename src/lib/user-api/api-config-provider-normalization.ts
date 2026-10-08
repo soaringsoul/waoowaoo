@@ -1,5 +1,6 @@
 import { ApiError } from '@/lib/api-errors'
 import { isApiConfigCatalogProviderId } from '@/lib/ai-registry/api-config-catalog'
+import { resolveAiProviderManifest } from '@/lib/ai-providers/manifests'
 import type { StoredProvider } from './api-config-types'
 import { getProviderKey, isRecord, readTrimmedString } from './api-config-shared'
 
@@ -20,6 +21,26 @@ function normalizeProviderBaseUrl(value: string, field: string): string {
     throw new ApiError('INVALID_PARAMS', {
       code: 'PROVIDER_BASE_URL_INVALID',
       field,
+    })
+  }
+}
+
+/**
+ * Lets providers with structured credentials (for example a ChatGPT login
+ * token bundle) validate and canonicalize the submitted secret before it is
+ * encrypted. Plain API-key providers store the trimmed key unchanged.
+ */
+export function normalizeProviderSecretForStorage(providerId: string, secret: string): string {
+  const credential = resolveAiProviderManifest(getProviderKey(providerId)).adapter.credential
+  if (!credential?.normalizeForStorage) return secret
+  try {
+    return credential.normalizeForStorage(secret)
+  } catch (error) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'PROVIDER_CREDENTIAL_INVALID',
+      field: 'providers.apiKey',
+      providerId,
+      message: error instanceof Error ? error.message : 'credential is invalid',
     })
   }
 }

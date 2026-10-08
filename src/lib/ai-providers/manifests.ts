@@ -46,6 +46,7 @@ function validateProviderManifests(manifests: readonly AiProviderManifest[]): vo
       manifest.catalogs.pricing,
       manifest.catalogs.apiConfigModels,
       manifest.catalogs.platformModels,
+      manifest.catalogs.customModelCapabilities ?? [],
     ]
     for (const entries of catalogGroups) {
       for (const entry of entries) {
@@ -91,6 +92,7 @@ function applyManifestExtensions(
     return {
       ...manifest,
       catalogs: {
+        ...manifest.catalogs,
         capabilities: [
           ...manifest.catalogs.capabilities,
           ...(extension.catalogs.capabilities ?? []),

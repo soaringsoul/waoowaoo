@@ -237,9 +237,51 @@ export type AiProviderConnectionTester = {
   diagnose: (input: { apiKey: string; baseUrl?: string; llmModel?: string }) => Promise<AiProviderConnectionTestReport>
 }
 
+/**
+ * Upstream contract the Codex model gateway uses for one Assistant request.
+ * The gateway still owns request normalization, attempts and failure
+ * projection; the provider only declares where the Responses request goes and
+ * which credential headers authorize it (PG-03 provider isolation).
+ */
+export type AiProviderAssistantGatewayUpstream = {
+  readonly responsesEndpoint: string
+  readonly headers: Readonly<Record<string, string>>
+  /** Provider-owned body adjustments applied after Codex request normalization. */
+  readonly prepareBody?: (body: Record<string, unknown>) => void
+  /** Only OpenRouter returns per-response USD cost usable for realtime settlement. */
+  readonly realtimeBilling: 'openrouter' | 'none'
+}
+
+export type AiProviderAssistantGateway = {
+  resolveUpstream: (input: {
+    readonly providerConfig: AiLlmProviderConfig
+    readonly modelId: string
+  }) => AiProviderAssistantGatewayUpstream
+}
+
+/**
+ * Providers whose stored secret is not a plain API key (for example an OAuth
+ * token bundle) normalize it before encryption and turn it into a usable
+ * runtime secret after decryption. `refreshUnderLock` serializes refreshes per
+ * stored provider row and persists the returned secret (re-encrypted).
+ */
+export type AiProviderCredentialAdapter = {
+  normalizeForStorage?: (secret: string) => string
+  resolveRuntimeSecret?: (input: {
+    readonly secret: string
+    readonly refreshUnderLock: (
+      refresh: (latestSecret: string) => Promise<string>,
+    ) => Promise<string>
+  }) => Promise<string>
+  /** Whether PLATFORM_<PREFIX>_API_KEY style environment credentials can be used. */
+  readonly platformCredentialsSupported?: boolean
+}
+
 export interface AiProviderAdapter {
   readonly providerKey: string
   readonly failure: AiProviderFailureAdapter
+  assistantGateway?: AiProviderAssistantGateway
+  credential?: AiProviderCredentialAdapter
   image?: AiProviderMediaModalityAdapter<'image'>
   video?: AiProviderMediaModalityAdapter<'video'>
   music?: AiProviderMediaModalityAdapter<'music'>

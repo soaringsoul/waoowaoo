@@ -25,6 +25,16 @@ export interface ProviderCapabilityCatalogDeclaration {
   readonly providerRoute?: unknown
 }
 
+/**
+ * Capabilities applied to user-added model ids of a provider that has no exact
+ * catalog entry (for example arbitrary models behind an OpenAI-compatible relay).
+ */
+export interface ProviderCustomModelCapabilityDeclaration {
+  readonly provider: string
+  readonly modelType: UnifiedModelType
+  readonly capabilities: unknown
+}
+
 export interface ProviderPricingCatalogDeclaration {
   readonly provider: string
   readonly apiType: PricingApiType
@@ -41,6 +51,12 @@ export interface AiProviderManifest {
     readonly visibility: 'visible' | 'hidden'
     readonly name: string
     readonly baseUrl?: string
+    /** Users may override the base URL (relays, gateways, regional endpoints). */
+    readonly baseUrlEditable?: boolean
+    /** Model types users may add with their own model ids; defaults to every catalog type. */
+    readonly customModelTypes?: readonly UnifiedModelType[]
+    /** How the credential is entered in API configuration. Defaults to an API key. */
+    readonly credentialInput?: 'api-key' | 'chatgpt-login'
   }
   readonly platformCredentials?: {
     readonly envPrefix: string
@@ -52,6 +68,7 @@ export interface AiProviderManifest {
     readonly pricing: readonly ProviderPricingCatalogDeclaration[]
     readonly apiConfigModels: readonly ApiConfigCatalogModel[]
     readonly platformModels: readonly PlatformModelPreset[]
+    readonly customModelCapabilities?: readonly ProviderCustomModelCapabilityDeclaration[]
   }
   readonly mediaInputs?: readonly ProviderMediaInputDeclaration[]
 }

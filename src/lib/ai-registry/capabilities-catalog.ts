@@ -26,6 +26,59 @@ export function registerBuiltinCapabilityCatalogEntries(entries: readonly unknow
   capabilityCache = null
 }
 
+type CustomModelCapabilityDefault = {
+  readonly provider: string
+  readonly modelType: UnifiedModelType
+  readonly capabilities: ModelCapabilities
+}
+
+let customModelCapabilityDefaults: readonly CustomModelCapabilityDefault[] = []
+
+/**
+ * Providers that proxy arbitrary upstream models (OpenAI-compatible relays)
+ * declare the capabilities a user-added model id is executed with. The
+ * fallback applies only to that provider and model type; every other provider
+ * keeps exact catalog lookup.
+ */
+export function registerCustomModelCapabilityDefaults(
+  entries: readonly { readonly provider: string; readonly modelType: UnifiedModelType; readonly capabilities: unknown }[],
+) {
+  const normalized: CustomModelCapabilityDefault[] = []
+  const seen = new Set<string>()
+  entries.forEach((entry, index) => {
+    const provider = getProviderKey(readTrimmedString(entry.provider))
+    if (!provider || !isUnifiedModelType(entry.modelType)) {
+      throw new Error(`CAPABILITY_CATALOG_INVALID: custom-default#${index} provider/modelType required`)
+    }
+    const issues = validateModelCapabilities(entry.modelType, entry.capabilities)
+    if (issues.length > 0 || !isPlainObject(entry.capabilities)) {
+      const issue = issues[0]
+      throw new Error(
+        `CAPABILITY_CATALOG_INVALID: custom-default#${index} ${issue?.code ?? 'CAPABILITIES_REQUIRED'} ${issue?.field ?? ''}`,
+      )
+    }
+    const key = `${entry.modelType}::${provider}`
+    if (seen.has(key)) throw new Error(`CAPABILITY_CATALOG_DUPLICATE: custom-default ${key}`)
+    seen.add(key)
+    normalized.push({
+      provider,
+      modelType: entry.modelType,
+      capabilities: entry.capabilities as ModelCapabilities,
+    })
+  })
+  customModelCapabilityDefaults = normalized
+}
+
+function findCustomModelCapabilityDefault(
+  modelType: UnifiedModelType,
+  provider: string,
+): CustomModelCapabilityDefault | null {
+  const providerKey = getProviderKey(provider)
+  return customModelCapabilityDefaults.find(
+    (entry) => entry.modelType === modelType && entry.provider === providerKey,
+  ) ?? null
+}
+
 // -----------------------------
 // Capabilities catalog + lookup
 // -----------------------------
@@ -184,6 +237,16 @@ export function findBuiltinCapabilityCatalogEntry(
       ...fallback,
       capabilities: cloneCapabilities(fallback.capabilities),
       ...(fallback.providerRoute ? { providerRoute: { ...fallback.providerRoute } } : {}),
+    }
+  }
+
+  const customDefault = findCustomModelCapabilityDefault(modelType, provider)
+  if (customDefault) {
+    return {
+      modelType,
+      provider,
+      modelId,
+      capabilities: cloneCapabilities(customDefault.capabilities),
     }
   }
 

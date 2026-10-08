@@ -16,6 +16,10 @@ export interface ApiConfigCatalogProvider {
   featured: boolean
   connectionTest: boolean
   modelTypes: UnifiedModelType[]
+  /** Model types users may add with custom model ids. */
+  customModelTypes: UnifiedModelType[]
+  baseUrlEditable: boolean
+  credentialInput: 'api-key' | 'chatgpt-login'
 }
 
 export interface ApiConfigCatalogModel {
@@ -61,6 +65,11 @@ export function listApiConfigCatalogProviders(): ApiConfigCatalogProvider[] {
         modelTypes: Array.from(new Set(
           manifest.catalogs.apiConfigModels.map((model) => model.type),
         )),
+        customModelTypes: manifest.apiConfig.customModelTypes
+          ? [...manifest.apiConfig.customModelTypes]
+          : Array.from(new Set(manifest.catalogs.apiConfigModels.map((model) => model.type))),
+        baseUrlEditable: manifest.apiConfig.baseUrlEditable === true,
+        credentialInput: manifest.apiConfig.credentialInput ?? 'api-key',
       }]
     : [])
 }
@@ -189,6 +198,8 @@ export function matchesApiConfigModelKey(key: string | undefined | null, provide
 
 const ZH_PROVIDER_NAME_MAP: Readonly<Record<string, string>> = {
   ark: '火山引擎 Ark',
+  codex: 'Codex（ChatGPT 登录）',
+  'openai-compatible': 'OpenAI 兼容接口',
 }
 
 function isZhLocale(locale?: string): boolean {
