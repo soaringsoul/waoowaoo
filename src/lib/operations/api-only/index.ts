@@ -4,6 +4,7 @@ import { createAssetHubApiOperations } from './asset-hub-api-ops'
 import { createAssetsApiOperations } from './assets-api-ops'
 import { createMediaUploadApiOperations } from './media-upload-api-ops'
 import { createUserApiConfigConnectionDiagnosticOperations } from './user-api-config-connection-ops'
+import { createUserApiConfigCodexLoginOperations } from './user-api-config-codex-login-ops'
 
 export function createApiOnlyOperationRegistry(): ProjectAgentOperationRegistry {
   return withOperationPack({
@@ -11,6 +12,7 @@ export function createApiOnlyOperationRegistry(): ProjectAgentOperationRegistry 
     ...createAssetHubApiOperations(),
     ...createMediaUploadApiOperations(),
     ...createUserApiConfigConnectionDiagnosticOperations(),
+    ...createUserApiConfigCodexLoginOperations(),
   }, {
     groupPath: ['api-only'],
     channels: { tool: false, api: true, mcp: false },

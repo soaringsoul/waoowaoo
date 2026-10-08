@@ -8,17 +8,17 @@ import {
 } from '@/lib/ai-providers/shared/openai-responses'
 import { executeOpenAiImagesApiGeneration } from '@/lib/ai-providers/shared/openai-images'
 import {
-  OPENAI_DEFAULT_BASE_URL,
-  OPENAI_PROVIDER_TEST_LLM_MODEL_ID,
-  resolveOpenAiOptionSchema,
+  OPENAI_COMPATIBLE_PROVIDER_KEY,
+  OPENAI_COMPATIBLE_TEST_LLM_MODEL_ID,
+  resolveOpenAiCompatibleOptionSchema,
 } from './models'
 
-const openAiFailureAdapter = createAiProviderFailureAdapter('openai')
+const failure = createAiProviderFailureAdapter(OPENAI_COMPATIBLE_PROVIDER_KEY)
 
-export const openAiAdapter: AiProviderAdapter = {
-  providerKey: 'openai',
-  failure: openAiFailureAdapter,
-  assistantGateway: createBearerResponsesAssistantGateway('openai'),
+export const openAiCompatibleAdapter: AiProviderAdapter = {
+  providerKey: OPENAI_COMPATIBLE_PROVIDER_KEY,
+  failure,
+  assistantGateway: createBearerResponsesAssistantGateway(OPENAI_COMPATIBLE_PROVIDER_KEY),
   languageModel: {
     create: (input) => createOpenAiStyleLanguageModel(input),
   },
@@ -27,17 +27,17 @@ export const openAiAdapter: AiProviderAdapter = {
       modality: 'image',
       selection,
       executionMode: 'sync',
-      optionSchema: resolveOpenAiOptionSchema('image', selection.modelId),
+      optionSchema: resolveOpenAiCompatibleOptionSchema('image', selection.modelId),
     }),
-    execute: (input) => executeOpenAiImagesApiGeneration('openai', input),
+    execute: (input) => executeOpenAiImagesApiGeneration(OPENAI_COMPATIBLE_PROVIDER_KEY, input),
   },
   connectionTest: createAiSdkConnectionTester({
-    providerKey: 'openai',
-    failure: openAiFailureAdapter,
-    displayName: 'OpenAI',
-    defaultBaseUrl: OPENAI_DEFAULT_BASE_URL,
-    defaultTestModel: OPENAI_PROVIDER_TEST_LLM_MODEL_ID,
-    protocol: 'openai-responses',
+    providerKey: OPENAI_COMPATIBLE_PROVIDER_KEY,
+    failure,
+    displayName: 'OpenAI-compatible',
+    defaultBaseUrl: '',
+    defaultTestModel: OPENAI_COMPATIBLE_TEST_LLM_MODEL_ID,
+    protocol: 'openai-compatible-chat',
     createLanguageModel: (input) => createOpenAiStyleLanguageModel(input),
   }),
 }

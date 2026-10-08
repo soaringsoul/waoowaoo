@@ -16,7 +16,7 @@ export const arkProviderManifest = defineAiProviderManifest({
   providerKey: 'ark',
   adapter: arkAdapter,
   apiConfig: {
-    visibility: 'hidden',
+    visibility: 'visible',
     name: 'Volcengine Ark',
     baseUrl: ARK_DEFAULT_BASE_URL,
   },

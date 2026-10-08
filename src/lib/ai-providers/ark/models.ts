@@ -18,6 +18,9 @@ export const ARK_BUILTIN_CAPABILITY_CATALOG_ENTRIES = [
     modelType: 'llm' as const, provider: 'ark', modelId: model.modelId,
     capabilities: { llm: {
       protocol: 'openai-responses' as const,
+      // Ark serves the OpenAI Responses API at <baseUrl>/responses, so the
+      // Assistant gateway can drive these models directly.
+      codexRuntimeWireApi: 'responses' as const,
       publicReasoningMode: model.publicReasoningMode,
       contextWindow: model.contextWindow,
       reasoningEffortOptions: [...model.reasoningEffortOptions],

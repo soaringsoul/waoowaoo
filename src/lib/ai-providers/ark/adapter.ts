@@ -1,5 +1,6 @@
 import type { AiProviderAdapter } from '@/lib/ai-providers/runtime-types'
 import { describeMediaVariantBase } from '@/lib/ai-providers/shared/media-adapter'
+import { createBearerResponsesAssistantGateway } from '@/lib/ai-providers/shared/openai-responses'
 import { createArkLanguageModel, prepareArkTextModelMessages } from './language-model'
 import { arkConnectionTester, arkFailureAdapter } from './connection-test'
 import { executeArkImageGeneration } from './image'
@@ -24,6 +25,7 @@ function describeArkMediaVariant(
 export const arkAdapter: AiProviderAdapter = {
   providerKey: 'ark',
   failure: arkFailureAdapter,
+  assistantGateway: createBearerResponsesAssistantGateway('ark'),
   image: {
     describe: (selection) => describeArkMediaVariant('image', selection),
     execute: executeArkImageGeneration,
