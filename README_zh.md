@@ -76,6 +76,17 @@ SSE 多标签页连接数量不等于 AI 任务并发额度。
 
 当前可见的 API 服务商是 **OpenRouter**。对话、图片和视频调用可能产生 API 费用，由你的服务商账户承担；在本地运行应用不代表模型调用免费。
 
+自部署版本还可以在「API 配置」中配置以下服务商：
+
+| 服务商 | 凭证 | 用途 |
+| --- | --- | --- |
+| **Codex（ChatGPT 登录）** | 使用 ChatGPT 设备码登录，或粘贴 `~/.codex/auth.json` | 助手与文本任务，使用 GPT-5.x Codex 模型，消耗 ChatGPT 套餐中的 Codex 额度 |
+| **OpenAI** | API Key，可自定义 Base URL | 助手/文本（Responses API）与 GPT Image 2 生图 |
+| **OpenAI 兼容接口** | API Key + Base URL | 文本任务走 `/chat/completions`，可添加自定义模型 ID；用作助手时接口还需支持 `/responses` |
+| **火山引擎方舟** | API Key | 豆包/GLM 文本（可作助手）、Seedream 图片、Seedance 视频 |
+
+助手基于 Responses API 运行，因此只能选择具备 Responses 路由的模型。ChatGPT 登录会加密保存刷新令牌，且每次刷新都会轮换：请单独登录，不要共用仍被其他 Codex 客户端使用的 `auth.json`。在计费模式（非 `OFF`）下，助手仍只支持 OpenRouter。
+
 选择较短的视频和较低的可用规格，可以减少尝试成本。请在提交前检查所选模型、参数和费用提示，并关注 OpenRouter 账户余额。
 
 应用界面目前支持**中文和英文**。README 提供中文、英文、日文和韩文版本；文档语言数量不代表界面语言数量。

@@ -27,6 +27,17 @@ WeChat / community
 
 This preview exposes **OpenRouter** configuration. Available models include GPT Image 2, Nano Banana variants, Seedance variants, and MiniMax H3 / H3 Max. Availability and charges depend on the provider. H3 Max currently accepts a single first frame in this application, not a first/last-frame pair. Music and voiceover controls are not included in this preview.
 
+Self-hosted deployments can also configure these providers in **API configuration**:
+
+| Provider | Credential | Used for |
+| --- | --- | --- |
+| **Codex (ChatGPT login)** | Sign in with ChatGPT (device code), or paste `~/.codex/auth.json` | Assistant and text tasks with GPT-5.x Codex models, billed to your ChatGPT plan's Codex quota |
+| **OpenAI** | API key, optional base URL | Assistant/text (Responses API) and GPT Image 2 |
+| **OpenAI-compatible** | API key + base URL | Text tasks via `/chat/completions` and custom model IDs; the Assistant also needs `/responses` |
+| **Volcengine Ark** | API key | Doubao/GLM text (also as Assistant), Seedream images, Seedance video |
+
+The Assistant runs on the Responses API, so only models with a Responses route can be selected for it. The ChatGPT login stores an encrypted refresh token that rotates on every refresh: use a dedicated login rather than sharing an `auth.json` that another Codex client keeps using. In billed (non-`OFF`) modes the Assistant stays OpenRouter-only.
+
 The application UI currently supports Chinese and English. Japanese and Korean are README translations.
 
 ---

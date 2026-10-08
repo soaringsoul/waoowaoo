@@ -98,7 +98,7 @@ In browser developer tools, enable the Network panel's **Protocol** column and r
 
 Open several application tabs and verify that navigation and event updates remain responsive while streams are open. Multiple SSE subscriptions are transport connections, not additional AI generation slots; this check neither changes nor measures the configured AI task concurrency limit. Do not launch paid jobs just to fill tabs.
 
-Then sign in/register and configure OpenRouter under the profile's API configuration. Verify a non-generating conversation only after the user has configured credentials and agreed to any conversation API charges. Ask before paid media generation.
+Then sign in/register and configure OpenRouter (or Codex via ChatGPT login, OpenAI, an OpenAI-compatible endpoint, or Volcengine Ark) under the profile's API configuration. Verify a non-generating conversation only after the user has configured credentials and agreed to any conversation API charges. Ask before paid media generation.
 
 No public IP, domain, public MinIO endpoint, or tunnel is required for supported inline image-reference requests. AI APIs still require Internet access and provider funds.
 
